@@ -48,11 +48,25 @@ Exporting is the process of adding instances to the injector for use elsewhere.
 ````
 
 ####Exporting Scriptable Objects
+The InjectorInitialized annotation automates the initialization of application services. You may use it to make sure that services are loaded
+with the injector. To use simply decorate your services. Both CLR services and Scriptable objects are supported. While optional, it is suggested
+that you create a static accessor property (Singleton) as demonstrated below.
 ````
  // Initialized at runtime by the injector
 [InjectorInitialized("ResourceName")]
-public class MyScriptableObject : ScriptableObject{
-	// Loaded at runtime for you !
+public class MyScriptableObject : ScriptableObject{	
+
+		// optionally
+        private static MyScriptableObject _instance;
+        public static MyScriptableObject Instance
+        {
+            get { return _instance ?? (_instance = Create()); }
+        }
+
+        static MyScriptableObject Create()
+        {
+            return Resources.Load<MyScriptableObject>("MyScriptableObject");
+        }
 }
 ````
 ####Exporting Singltons
@@ -60,7 +74,7 @@ public class MyScriptableObject : ScriptableObject{
  // Initialized at runtime by the injector
 [InjectorInitialized]
 public class MyService {
-	public static MyService { get { set;} }
+	public static readonly MyService = new MyService();
 }
 ````
 

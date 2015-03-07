@@ -57,7 +57,7 @@ namespace Foundation.Ioc
             ResourceName = resourceName;
             AbortLoad = abortLoad;
         }
-        
+
         /// <summary>
         /// Has the LoadScriptableObjects been called ?
         /// </summary>
@@ -97,8 +97,12 @@ namespace Foundation.Ioc
             foreach (var type in types)
             {
                 //Already Loaded
-                if(Injector.GetFirst(type) != null)
+                if (Injector.GetFirst(type) != null)
                     continue;
+
+                //check for a static accessor
+                if (CheckForStaticAccessor(type))
+                    return;
 
                 if (typeof(ScriptableObject).IsAssignableFrom(type))
                 {
@@ -126,49 +130,67 @@ namespace Foundation.Ioc
                 }
                 else
                 {
-                    // CLR
                     try
                     {
-                        // check for singleton variable
-                        var type1 = type;
-                        var props = type.GetProperties(BindingFlags.Static | BindingFlags.Public).Where(o=> o.PropertyType == type1).ToArray();
-                        if (props.Any())
-                        {
-                            // call it
-                            var resource = props.First().GetValue(null, null);
-                            Injector.AddExport(resource);
-                        }
-                        else
-                        {
-
-                            var fields = type.GetFields(BindingFlags.Static | BindingFlags.Public).Where(o => o.FieldType == type1).ToArray();
-                            if (fields.Any())
-                            {
-                                // call it
-                                var resource = fields.First().GetValue(null);
-                                Injector.AddExport(resource);
-                            }
-                            else
-                            {
-                                Debug.LogWarning(string.Format("Service {0} should have a Singleton Instance Property", type));
-                                // note Object has the responsibility of exporting itself to the injector
-                                var resource = Activator.CreateInstance(type);
-                                Injector.AddExport(resource);
-                            }
-                        }
+                        Debug.LogWarning(string.Format("Service {0} should have a Singleton Instance Property", type));
+                        var resource = Activator.CreateInstance(type);
+                        Injector.AddExport(resource);
 
 
                     }
                     catch (Exception ex)
                     {
-                        Debug.LogError("Failed to create instance of " + type);
                         Debug.LogError(ex);
+                        Debug.LogError("Failed to create instance of " + type);
+                        Debug.LogWarning(string.Format("Service {0} should have a Singleton Instance Property", type));
+                  
                     }
                 }
             }
         }
 
-           #region misc
+        /// <summary>
+        /// Checks for a static instance member
+        /// </summary>
+        /// <returns></returns>
+        static bool CheckForStaticAccessor(Type type)
+        {
+            // check for singleton variable
+            var type1 = type;
+
+            // check props
+            var props = type.GetProperties(BindingFlags.Static | BindingFlags.Public).Where(o => o.PropertyType == type1).ToArray();
+            if (props.Any())
+            {
+                // call it
+                var resource = props.First().GetValue(null, null);
+
+                if (resource == null)
+                    return false;
+                Injector.AddExport(resource);
+                return true;
+            }
+            else
+            {
+                // check fields
+                var fields = type.GetFields(BindingFlags.Static | BindingFlags.Public).Where(o => o.FieldType == type1).ToArray();
+                if (fields.Any())
+                {
+                    // call it
+                    var resource = fields.First().GetValue(null);
+
+                    if (resource == null)
+                        return false;
+
+                    Injector.AddExport(resource);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        #region misc
         /// <summary>
         /// return Attribute.IsDefined(m, typeof(T));
         /// </summary>
@@ -189,7 +211,7 @@ namespace Foundation.Ioc
         static T GetAttribute<T>(MemberInfo m) where T : Attribute
         {
             return m.GetCustomAttributes(typeof(T), true).FirstOrDefault() as T;
-        } 
+        }
         #endregion
     }
 }
