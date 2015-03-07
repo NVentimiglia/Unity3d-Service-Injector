@@ -65,7 +65,7 @@ public class MyScriptableObject : ScriptableObject{
 
         static MyScriptableObject Create()
         {
-            return Resources.Load<MyScriptableObject>("MyScriptableObject");
+            return Resources.Load<MyScriptableObject>("ResourceName");
         }
 }
 ````
