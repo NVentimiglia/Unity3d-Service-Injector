@@ -2,7 +2,7 @@
 
 Nicholas Ventimiglia | AvariceOnline.com
 
-The Injector is a static application service for resolving dependencies similar to Gameibject.Find.
+The Injector is a static application service for resolving dependencies similar to GameObject.Find.
 Objects may be added to the injector as "Exports" and then these exports
 may be "Imported" into consumers worry free. The injector supports collections, abstract types, lazy late loading and the [Import] Annotation.
 
