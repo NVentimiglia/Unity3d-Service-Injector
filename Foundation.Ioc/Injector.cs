@@ -149,7 +149,11 @@ namespace Foundation.Ioc
                     // is message type 
                     memberType == o.MemberType
                         // or handler is an interface of message
+#if UNITY_WSA
+                    || o.MemberType.GetTypeInfo().IsSubclassOf(o.MemberType));
+#else
                     || (memberType.IsAssignableFrom(o.MemberType)));
+#endif
         }
 
         /// <summary>
@@ -163,7 +167,18 @@ namespace Foundation.Ioc
             {
                 return Subscriptions.Where(o => (o.HasKey && o.InjectKey == export.InjectKey));
             }
-
+#if UNITY_WSA
+            return
+                Subscriptions.Where(o =>
+                    // is message type 
+                    o.MemberType == export.MemberType
+                        // or handler is an interface of message
+                    || (export.MemberType.GetTypeInfo().IsSubclassOf(o.MemberType))
+                        // support for GetAll
+                        // ReSharper disable once PossibleNullReferenceException
+                    || (o.MemberType.IsArray && export.MemberType.GetTypeInfo().IsSubclassOf(o.MemberType.GetElementType()))
+                    || (o.MemberType.IsGenericParameter && export.MemberType.GetTypeInfo().IsSubclassOf(o.MemberType.GetGenericTypeDefinition())));
+#else
             return
                 Subscriptions.Where(o =>
                     // is message type 
@@ -174,6 +189,7 @@ namespace Foundation.Ioc
                         // ReSharper disable once PossibleNullReferenceException
                     || (o.MemberType.IsArray && o.MemberType.GetElementType().IsAssignableFrom(export.MemberType))
                     || (o.MemberType.IsGenericType && o.MemberType.GetGenericArguments().First().IsAssignableFrom(export.MemberType)));
+#endif
         }
 
         #endregion
@@ -203,7 +219,11 @@ namespace Foundation.Ioc
             // add as self
             var type = instance.GetType();
 
+#if UNITY_WSA
+            if (type.IsGenericParameter || type.IsArray)
+#else
             if (type.IsGenericType || type.IsArray)
+#endif
             {
                 Debug.LogError("Generics and Arrays are not valid exports. Export individually or a container.");
                 return;
@@ -212,7 +232,7 @@ namespace Foundation.Ioc
             if (Exports.Any(o => o.Instance == instance))
                 Debug.LogWarning("Export is being added multiple times ! " + instance.GetType());
 
-            var key = GetAttribute<ExportAttribute>(type);
+            var key = ReflectionExtensions.GetAttribute<ExportAttribute>(type);
 
             // add to container
             var e = new InjectExport(type, instance, key == null ? null : key.InjectKey);
@@ -262,16 +282,20 @@ namespace Foundation.Ioc
         /// <param name="instance"></param>
         public static void Import(object instance)
         {
-            var fields = instance.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public).Where(o => HasAttribute<ImportAttribute>(o)).ToArray();
-            var props = instance.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public).Where(o => HasAttribute<ImportAttribute>(o)).ToArray();
-
+#if UNITY_WSA
+            var fields = instance.GetType().GetTypeInfo().DeclaredFields.Where(o => ReflectionExtensions.HasAttribute<ImportAttribute>(o)).ToArray();
+            var props = instance.GetType().GetTypeInfo().DeclaredProperties.Where(o => ReflectionExtensions.HasAttribute<ImportAttribute>(o)).ToArray();
+#else
+            var fields = instance.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public).Where(o => ReflectionExtensions.HasAttribute<ImportAttribute>(o)).ToArray();
+            var props = instance.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public).Where(o => ReflectionExtensions.HasAttribute<ImportAttribute>(o)).ToArray();
+#endif
             for (int i = 0;i < fields.Length;i++)
             {
-                Import(instance, fields[i], GetAttribute<ImportAttribute>(fields[i]).InjectKey);
+                Import(instance, fields[i], ReflectionExtensions.GetAttribute<ImportAttribute>(fields[i]).InjectKey);
             }
             for (int i = 0;i < props.Length;i++)
             {
-                Import(instance, props[i], GetAttribute<ImportAttribute>(props[i]).InjectKey);
+                Import(instance, props[i], ReflectionExtensions.GetAttribute<ImportAttribute>(props[i]).InjectKey);
             }
         }
 
@@ -281,7 +305,7 @@ namespace Foundation.Ioc
         static void Import(object instance, MemberInfo member, string key)
         {
             // get member type
-            var memberType = GetMemberType(member);
+            var memberType = ReflectionExtensions.GetMemberType(member);
 
             if (memberType.IsArray)
             {
@@ -296,16 +320,28 @@ namespace Foundation.Ioc
 
                 Array.Copy(arg, a, arg.Length);
 
-                SetMemberValue(member, instance, a);
+                ReflectionExtensions.SetMemberValue(member, instance, a);
 
             }
+#if UNITY_WSA
+            else if (memberType.GetTypeInfo().ImplementedInterfaces.Contains(typeof(IEnumerable<>)) && memberType.GetTypeInfo().IsGenericType)
+#else
             else if (memberType.GetInterface("IEnumerable") != null && memberType.IsGenericType)
+#endif
             {
 
-                //get enumerable generic type
+#if UNITY_WSA
+                var type = memberType.GetTypeInfo().GenericTypeArguments.First();
+#else
                 var type = memberType.GetGenericArguments().First();
+#endif
+                //get enumerable generic type
 
+#if UNITY_WSA
+                if (type.GetTypeInfo().IsInterface)
+#else
                 if (type.IsInterface)
+#endif
                 {
 
                 }
@@ -317,7 +353,7 @@ namespace Foundation.Ioc
 
                 Array.Copy(arg, a, arg.Length);
 
-                SetMemberValue(member, instance, a);
+                ReflectionExtensions.SetMemberValue(member, instance, a);
 
             }
             else
@@ -325,13 +361,17 @@ namespace Foundation.Ioc
                 var arg = GetExports(memberType, key).FirstOrDefault();
 
                 if (arg != null)
-                    SetMemberValue(member, instance, arg.Instance);
+                    ReflectionExtensions.SetMemberValue(member, instance, arg.Instance);
             }
         }
 
         static object ConvertTo(object instance, Type type)
         {
+#if UNITY_WSA
+            if (type.GetTypeInfo().IsInterface)
+#else
             if (type.IsInterface)
+#endif
             {
                 return instance;
             }
@@ -345,7 +385,7 @@ namespace Foundation.Ioc
         /// </summary>
         public static void Clear(object instance, MemberInfo member)
         {
-            SetMemberValue(member, instance, null);
+            ReflectionExtensions.SetMemberValue(member, instance, null);
         }
         #endregion
 
@@ -369,9 +409,11 @@ namespace Foundation.Ioc
         /// <returns></returns>
         public static bool HasExport(Type t)
         {
-            return Exports.Any(o =>
-                o.MemberType == t || (t.IsAssignableFrom(o.MemberType))
-                );
+#if UNITY_WSA
+            return Exports.Any(o => o.MemberType == t || (o.MemberType.GetTypeInfo().IsSubclassOf(t)));
+#else
+            return Exports.Any(o =>o.MemberType == t || (t.IsAssignableFrom(o.MemberType)));
+#endif
         }
 
         /// <summary>
@@ -489,9 +531,13 @@ namespace Foundation.Ioc
         /// <param name="instance"></param>
         public static void Subscribe(object instance)
         {
-            var fields = instance.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public).Where(o => HasAttribute<ImportAttribute>(o)).ToArray();
-            var props = instance.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public).Where(o =>HasAttribute<ImportAttribute>(o)).ToArray();
-
+#if UNITY_WSA
+            var fields = instance.GetType().GetTypeInfo().DeclaredFields.Where(o => ReflectionExtensions.HasAttribute<ImportAttribute>(o)).ToArray();
+            var props = instance.GetType().GetTypeInfo().DeclaredProperties.Where(o => ReflectionExtensions.HasAttribute<ImportAttribute>(o)).ToArray();
+#else
+            var fields = instance.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public).Where(o => ReflectionExtensions.HasAttribute<ImportAttribute>(o)).ToArray();
+            var props = instance.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public).Where(o => ReflectionExtensions.HasAttribute<ImportAttribute>(o)).ToArray();
+#endif
             for (int i = 0;i < fields.Length;i++)
             {
                 Subscribe(instance, fields[i]);
@@ -508,14 +554,14 @@ namespace Foundation.Ioc
         public static void Subscribe(object instance, MemberInfo member)
         {
             //Import First
-            var key = GetAttribute<ImportAttribute>(member);
+            var key = ReflectionExtensions.GetAttribute<ImportAttribute>(member);
 
             Import(instance, member, key == null ? null : key.InjectKey);
 
             var a = member.GetCustomAttributes(typeof(ImportAttribute), true).Cast<ImportAttribute>().FirstOrDefault();
 
             // add subscription
-            Subscriptions.Add(new InjectSubscription(GetMemberType(member), instance, member, a == null ? null : a.InjectKey));
+            Subscriptions.Add(new InjectSubscription(ReflectionExtensions.GetMemberType(member), instance, member, a == null ? null : a.InjectKey));
         }
 
         /// <summary>
@@ -524,9 +570,13 @@ namespace Foundation.Ioc
         /// <param name="instance"></param>
         public static void UnSubscribe(object instance)
         {
-            var fields = instance.GetType().GetFields().Where(o => HasAttribute<ImportAttribute>(o)).ToArray();
-            var props = instance.GetType().GetProperties(BindingFlags.DeclaredOnly).Where(o => HasAttribute<ImportAttribute>(o)).ToArray();
-
+#if UNITY_WSA
+            var fields = instance.GetType().GetTypeInfo().DeclaredFields.Where(o => ReflectionExtensions.HasAttribute<ImportAttribute>(o)).ToArray();
+            var props = instance.GetType().GetTypeInfo().DeclaredProperties.Where(o => ReflectionExtensions.HasAttribute<ImportAttribute>(o)).ToArray();
+#else
+            var fields = instance.GetType().GetFields().Where(o => ReflectionExtensions.HasAttribute<ImportAttribute>(o)).ToArray();
+            var props = instance.GetType().GetProperties().Where(o => ReflectionExtensions.HasAttribute<ImportAttribute>(o)).ToArray();
+#endif
             for (int i = 0;i < fields.Length;i++)
             {
                 fields[i].SetValue(instance, null);
@@ -551,75 +601,6 @@ namespace Foundation.Ioc
             Subscriptions.RemoveAll(o => o.Instance == instance && o.Member == member);
         }
 
-        #endregion
-
-        #region misc
-        /// <summary>
-        /// return Attribute.IsDefined(m, typeof(T));
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="m"></param>
-        /// <returns></returns>
-        static bool HasAttribute<T>(MemberInfo m) where T : Attribute
-        {
-            return Attribute.IsDefined(m, typeof(T));
-        }
-
-        /// <summary>
-        ///  return m.GetCustomAttributes(typeof(T), true).FirstOrDefault() as T;
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="m"></param>
-        /// <returns></returns>
-        static T GetAttribute<T>(MemberInfo m) where T : Attribute
-        {
-            return m.GetCustomAttributes(typeof(T), true).FirstOrDefault() as T;
-        } 
-        
-        /// <summary>
-        /// Returns the Return ValueType of the member
-        /// </summary>
-        /// <param name="member"></param>
-        /// <returns></returns>
-        static Type GetMemberType(MemberInfo member)
-        {
-            if (member is MethodInfo)
-                return ((MethodInfo)member).ReturnType;
-
-            if (member is PropertyInfo)
-                return ((PropertyInfo)member).PropertyType;
-
-            return ((FieldInfo)member).FieldType;
-        } 
-        
-        /// <summary>
-        /// Set the member's instances value
-        /// </summary>
-        /// <returns></returns>
-        static void SetMemberValue(MemberInfo member, object instance, object value)
-        {
-            if (member is MethodInfo)
-            {
-                var method = ((MethodInfo)member);
-
-                if (method.GetParameters().Any())
-                {
-                    method.Invoke(instance, new[] { value });
-                }
-                else
-                {
-                    method.Invoke(instance, null);
-                }
-            }
-            else if (member is PropertyInfo)
-            {
-                ((PropertyInfo)member).SetValue(instance, value, null);
-            }
-            else
-            {
-                ((FieldInfo)member).SetValue(instance, value);
-            }
-        }
         #endregion
     }
 }

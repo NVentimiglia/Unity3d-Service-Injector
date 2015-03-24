@@ -1,6 +1,6 @@
-# Foundation Injector (v4.0) 3/6/2015
+# Foundation Injector
 
-Nicholas Ventimiglia | AvariceOnline.com
+3/24/2015 | Nicholas Ventimiglia | AvariceOnline.com
 
 The Injector is a static application service for resolving dependencies similar to GameObject.Find.
 Objects may be added to the injector as "Exports" and then these exports
@@ -20,7 +20,11 @@ may be "Imported" into consumers worry free. The injector supports collections, 
 
 - Use the [InjectorService] annotation on singleton services or ScriptableObjects and they will be loaded as needed for you.
   
+### Platforms
+Desktop, Webplayer, Android, iOS, Windows Store
+
 ##Use
+
 ###Exporting
 
 Exporting is the process of adding instances to the injector for use elsewhere.
