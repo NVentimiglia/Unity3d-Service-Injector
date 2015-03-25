@@ -4,11 +4,12 @@
 //  Product		: Unity3d Foundation
 //  Published		: 2015
 //  -------------------------------------
+#define UNITY_WSA
 using System;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
-#if UNITY_WSA
+#if UNITY_WSA && !UNITY_EDITOR
 using System.Collections.Generic;
 using Windows.ApplicationModel;
 using Windows.Storage;
@@ -35,7 +36,6 @@ namespace Foundation.Ioc
         /// Location / File name of the ScriptableObject resource
         /// </summary>
         public string ResourceName { get; private set; }
-
 
         public InjectorInitialized()
         {
@@ -74,14 +74,14 @@ namespace Foundation.Ioc
         /// </summary>
         public static bool IsLoading { get; set; }
 
-#if UNITY_WSA
+#if UNITY_WSA && !UNITY_EDITOR
         /// <summary>
         /// All Object Types that are considered services
         /// </summary>
         public static async Task<TypeInfo[]> GetServiceTypes()
         {
             var ass = await GetLoadedAssemblies();
-            return ass.SelectMany(a => a.DefinedTypes.Where(o => o.GetCustomAttribute<InjectorInitialized>() != null)).ToArray();
+            return ass.SelectMany(a => a.DefinedTypes.Where(o => o.HasAttribute<InjectorInitialized>())).ToArray();
         }
 
 
@@ -94,9 +94,11 @@ namespace Foundation.Ioc
 
             var folderFilesAsync = await folder.GetFilesAsync().AsTask();
 
+            loadedAssemblies.Add(typeof (InjectorInitialized).GetTypeInfo().Assembly);
+
             foreach (var file in folderFilesAsync)
             {
-                if (file.FileType == ".dll" || file.FileType == ".exe")
+                if (file.FileType == ".dll")
                 {
                     try
                     {
@@ -118,7 +120,7 @@ namespace Foundation.Ioc
         /// <summary>
         /// Loads all services into memory
         /// </summary>
-        public static async void LoadServices()
+        public static void LoadServices()
         {
             if (IsLoaded)
             {
@@ -130,10 +132,9 @@ namespace Foundation.Ioc
                 return;
             }
 
-            IsLoaded = true;
-
-
-            var types = await GetServiceTypes();
+            IsLoading = true;
+            
+            var types = GetServiceTypes().GetAwaiter().GetResult();
 
             foreach (var type in types)
             {
@@ -143,11 +144,11 @@ namespace Foundation.Ioc
 
                 //check for a static accessor
                 if (CheckForStaticAccessor(type.AsType()))
-                    return;
+                    continue;
 
                 if (type.IsSubclassOf(typeof(ScriptableObject)))
                 {
-                    var deco = ReflectionExtensions.GetAttribute<InjectorInitialized>(type);
+                    var deco = type.GetAttribute<InjectorInitialized>();
 
                     if (deco.AbortLoad)
                         continue;
@@ -176,8 +177,6 @@ namespace Foundation.Ioc
                         Debug.LogWarning(string.Format("Service {0} should have a Singleton Instance Property", type));
                         var resource = Activator.CreateInstance(type.AsType());
                         Injector.AddExport(resource);
-
-
                     }
                     catch (Exception ex)
                     {
@@ -188,6 +187,7 @@ namespace Foundation.Ioc
                     }
                 }
             }
+            IsLoaded = true;
         }
 #else
         /// <summary>
@@ -195,10 +195,10 @@ namespace Foundation.Ioc
         /// </summary>
         public static Type[] GetServiceTypes()
         {
-            return AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.GetTypes().Where(o => ReflectionExtensions.HasAttribute<InjectorInitialized>(o))).ToArray();
+            return AppDomain.CurrentDomain.GetAssemblies().SelectMany(a => a.GetTypes().Where(o => o.HasAttribute<InjectorInitialized>())).ToArray();
         }
 
-          /// <summary>
+        /// <summary>
         /// Loads all services into memory
         /// </summary>
         public static void LoadServices()
@@ -213,10 +213,10 @@ namespace Foundation.Ioc
                 return;
             }
 
-            IsLoaded = true;
-            
+            IsLoading = true;
 
             var types = GetServiceTypes();
+
             foreach (var type in types)
             {
                 //Already Loaded
@@ -225,11 +225,11 @@ namespace Foundation.Ioc
 
                 //check for a static accessor
                 if (CheckForStaticAccessor(type))
-                    return;
-        
+                    continue;
+
                 if (typeof(ScriptableObject).IsAssignableFrom(type))
                 {
-                    var deco = ReflectionExtensions.GetAttribute<InjectorInitialized>(type);
+                    var deco = type.GetAttribute<InjectorInitialized>();
 
                     if (deco.AbortLoad)
                         continue;
@@ -267,10 +267,11 @@ namespace Foundation.Ioc
                         Debug.LogError(ex);
                         Debug.LogError("Failed to create instance of " + type);
                         Debug.LogWarning(string.Format("Service {0} should have a Singleton Instance Property", type));
-                  
+
                     }
                 }
             }
+            IsLoaded = true;
         }
 #endif
         /// <summary>
@@ -282,7 +283,7 @@ namespace Foundation.Ioc
             // check for singleton variable
             var type1 = type;
 
-#if UNITY_WSA
+#if UNITY_WSA && !UNITY_EDITOR
             // check props
             var props = type.GetTypeInfo().DeclaredProperties.Where(o => o.PropertyType == type1).ToArray();
             if (props.Any())
