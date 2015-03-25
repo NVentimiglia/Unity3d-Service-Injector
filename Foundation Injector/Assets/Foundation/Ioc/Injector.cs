@@ -538,8 +538,8 @@ namespace Foundation.Ioc
         public static void Subscribe(object instance)
         {
 #if UNITY_WSA && !UNITY_EDITOR
-            var fields = instance.GetType().GetTypeInfo().DeclaredFields.Where(o => o.HasAttribute<ImportAttribute>()).ToArray();
-            var props = instance.GetType().GetTypeInfo().DeclaredProperties.Where(o => o.HasAttribute<ImportAttribute>()).ToArray();
+            var fields = instance.GetType().GetRuntimeFields().Where(o => o.HasAttribute<ImportAttribute>()).ToArray();
+            var props = instance.GetType().GetRuntimeProperties().Where(o => o.HasAttribute<ImportAttribute>()).ToArray();
 #else
             var fields = instance.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public).Where(o => o.HasAttribute<ImportAttribute>()).ToArray();
             var props = instance.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public).Where(o => o.HasAttribute<ImportAttribute>()).ToArray();
@@ -577,8 +577,8 @@ namespace Foundation.Ioc
         public static void UnSubscribe(object instance)
         {
 #if UNITY_WSA && !UNITY_EDITOR
-            var fields = instance.GetType().GetTypeInfo().DeclaredFields.Where(o => o.HasAttribute<ImportAttribute>()).ToArray();
-            var props = instance.GetType().GetTypeInfo().DeclaredProperties.Where(o => o.HasAttribute<ImportAttribute>()).ToArray();
+            var fields = instance.GetType().GetRuntimeFields().Where(o => o.HasAttribute<ImportAttribute>()).ToArray();
+            var props = instance.GetType().GetRuntimeProperties().Where(o => o.HasAttribute<ImportAttribute>()).ToArray();
 #else
             var fields = instance.GetType().GetFields().Where(o => o.HasAttribute<ImportAttribute>()).ToArray();
             var props = instance.GetType().GetProperties().Where(o => o.HasAttribute<ImportAttribute>()).ToArray();

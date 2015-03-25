@@ -285,7 +285,7 @@ namespace Foundation.Ioc
 
 #if UNITY_WSA && !UNITY_EDITOR
             // check props
-            var props = type.GetTypeInfo().DeclaredProperties.Where(o => o.PropertyType == type1).ToArray();
+            var props = type.GetRuntimeProperties().Where(o => o.PropertyType == type1).ToArray();
             if (props.Any())
             {
                 // call it
@@ -299,7 +299,7 @@ namespace Foundation.Ioc
             else
             {
                 // check fields
-                var fields = type.GetTypeInfo().DeclaredFields.Where(o => o.FieldType == type1).ToArray();
+                var fields = type.GetRuntimeFields().Where(o => o.FieldType == type1).ToArray();
                 if (fields.Any())
                 {
                     // call it
