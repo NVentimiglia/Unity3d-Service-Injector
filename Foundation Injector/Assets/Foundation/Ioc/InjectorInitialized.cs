@@ -4,7 +4,6 @@
 //  Product		: Unity3d Foundation
 //  Published		: 2015
 //  -------------------------------------
-#define UNITY_WSA
 using System;
 using System.Linq;
 using System.Reflection;

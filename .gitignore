@@ -8,11 +8,9 @@
 *.unityproj
 *.sln
 *.userprefs
-
+*.suo
 *.pidb
 *.booproj
-
-
 
 
 #Fast Platform Switch
