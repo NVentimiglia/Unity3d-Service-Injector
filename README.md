@@ -13,7 +13,7 @@ may be "Imported" into consumers worry free. The injector supports collections, 
 - Supports GetFirst and GetAll. Get all of a exported dependency type. 
 
 - Supports [Import] annotation. Using this annotation unlocks the Import(object) helper method.
-  This helper method allows for the importing of all decorated members automagically.
+  This helper method allows for the importing of all decorated members automatic.
 
 - Consumers may subscribe. Once subscribed imported members will be updated as items are added / removed from the injector.
   This allows for conducting all setup in Awake worry free.
